@@ -36,6 +36,7 @@
 #include <set>
 #include <type_traits>
 #include <sstream>
+#include <optional>
 
 // TrackIt is a zero-size class for tracking constructions, destructions, and assignments of instances
 // of a class.  Just inherit TrackIt<T> from T to enable tracking of construction and destruction of
@@ -350,98 +351,51 @@ inline void save( Archive& ar, const Arena& p ) {
 template <class T>
 class Optional : public ComposedIdentifier<T, 0x10> {
 public:
-	Optional() : valid(false) {}
-	Optional(const Optional<T>& o) : valid(o.valid) {
-		if (valid) new (&value) T(o.get());
-	}
+	Optional() {}
+	Optional(const Optional<T>& o) : opt(o.opt) {}
 
 	template <class U>
-	Optional(const U& t) : valid(true) { new (&value) T(t); }
-
-	/* This conversion constructor was nice, but combined with the prior constructor it means that Optional<int> can be converted to Optional<Optional<int>> in the wrong way
-	(a non-present Optional<int> converts to a non-present Optional<Optional<int>>).
-	Use .castTo<>() instead.
-	template <class S> Optional(const Optional<S>& o) : valid(o.present()) { if (valid) new (&value) T(o.get()); } */
-
-	Optional(Arena& a, const Optional<T>& o) : valid(o.valid) {
-		if (valid) new (&value) T(a, o.get());
-	}
-	int expectedSize() const { return valid ? get().expectedSize() : 0; }
+	Optional(const U& t) : opt(t) {}
 
 	template <class R> Optional<R> castTo() const {
-		return map<R>([](const T& v){ return (R)v; });
+		return opt;
 	}
 
-	template <class R> Optional<R> map(std::function<R(T)> f) const {
-		if (present()) {
-			return Optional<R>(f(get()));
-		}
-		else {
-			return Optional<R>();
-		}
-	}
-
-	~Optional() {
-		if (valid) ((T*)&value)->~T();
-	}
-
-	Optional & operator=(Optional const& o) {
-		if (valid) {
-			valid = false;
-			((T*)&value)->~T();
-		}
-		if (o.valid) {
-			new (&value) T(o.get());
-			valid = true;
-		}
-		return *this;
-	}
-
-	bool present() const { return valid; }
+	bool present() const { return opt.has_value(); }
 	T& get() {
-		UNSTOPPABLE_ASSERT(valid);
-		return *(T*)&value;
+		UNSTOPPABLE_ASSERT(opt.has_value());
+		return opt.value();
 	}
 	T const& get() const {
-		UNSTOPPABLE_ASSERT(valid);
-		return *(T const*)&value;
+		UNSTOPPABLE_ASSERT(opt.has_value());
+		return opt.value();
 	}
-	T orDefault(T const& default_value) const { if (valid) return get(); else return default_value; }
-
-	template <class Ar>
-	void serialize(Ar& ar) {
-		// SOMEDAY: specialize for space efficiency?
-		if (valid && Ar::isDeserializing)
-			(*(T *)&value).~T();
-		serializer(ar, valid);
-		if (valid) {
-			if (Ar::isDeserializing) new (&value) T();
-			serializer(ar, *(T*)&value);
-		}
+	T orDefault(T const& default_value) const { 
+		return opt.value_or(default_value);
 	}
 
 	bool operator == (Optional const& o) const {
-		return present() == o.present() && (!present() || get() == o.get());
+		return std::operator==(opt, o.opt);
 	}
+
 	bool operator != (Optional const& o) const {
-		return !(*this == o);
+		return std::operator!=(opt, o.opt);
 	}
-	// Ordering: If T is ordered, then Optional() < Optional(t) and (Optional(u)<Optional(v))==(u<v)
 	bool operator < (Optional const& o) const {
-		if (present() != o.present()) return o.present();
-		if (!present()) return false;
-		return get() < o.get();
+		return std::operator<(opt, o.opt);
 	}
 
 	void reset() {
-		if (valid) {
-			valid = false;
-			((T*)&value)->~T();
-		}
+		opt.reset();
 	}
+
+	template <class Ar>
+	void serialize(Ar& ar) {
+		serializer(ar, opt);
+	}
+
 private:
-	typename std::aligned_storage< sizeof(T), __alignof(T) >::type value;
-	bool valid;
+	std::optional<T> opt;
 };
 
 template<class T>

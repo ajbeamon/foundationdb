@@ -105,6 +105,7 @@ struct LeaderInfo {
 
 	bool operator < (LeaderInfo const& r) const { return changeID < r.changeID; }
 	bool operator == (LeaderInfo const& r) const { return changeID == r.changeID; }
+	bool operator != (LeaderInfo const& r) const { return !(*this == r); }
 
 	// The first 7 bits of ChangeID represent cluster controller process class fitness, the lower the better
 	void updateChangeID(ClusterControllerPriorityInfo info) {

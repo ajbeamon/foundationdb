@@ -299,9 +299,9 @@ struct WriteDuringReadWorkload : TestWorkload {
 		//TraceEvent("WDRGet", randomID);
 		try {
 			state Optional<Value> memRes = self->memoryGet( readYourWritesDisabled || (snapshot && snapshotRYWDisabled) ? &self->lastCommittedDatabase : &self->memoryDatabase, key );
-			*memLimit -= memRes.expectedSize();
+			*memLimit -= memRes.present() ? memRes.get().expectedSize() : 0;
 			Optional<Value> res = wait( tr->get( key, snapshot ) );
-			*memLimit += memRes.expectedSize();
+			*memLimit += memRes.present() ? memRes.get().expectedSize() : 0;
 			if( res != memRes ) {
 				TraceEvent(SevError, "WDRGetWrongResult", randomID).detail("Key", printable(key)).detail("Snapshot", snapshot).detail("MemoryResult", memRes.present() ? memRes.get().size() : -1 ).detail("DbResult",  res.present() ? res.get().size() : -1 ).detail("RywDisable", readYourWritesDisabled);
 				self->success = false;
@@ -328,7 +328,7 @@ struct WriteDuringReadWorkload : TestWorkload {
 		try {
 			state int changeNum = self->changeCount[key];
 			state Optional<Value> memRes = self->memoryGet( &self->memoryDatabase, key );
-			*memLimit -= memRes.expectedSize();
+			*memLimit -= memRes.present() ? memRes.get().expectedSize() : 0;
 			choose {
 				when( wait( tr->watch( key ) ) ) {
 					if( changeNum == self->changeCount[key] ) {
@@ -342,7 +342,7 @@ struct WriteDuringReadWorkload : TestWorkload {
 					}
 				}
 			}
-			*memLimit += memRes.expectedSize();
+			*memLimit += memRes.present() ? memRes.get().expectedSize() : 0;
 			
 			return Void();
 		} catch( Error &e ) {

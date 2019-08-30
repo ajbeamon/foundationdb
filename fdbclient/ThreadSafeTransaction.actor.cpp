@@ -61,12 +61,12 @@ void ThreadSafeDatabase::setOption( FDBDatabaseOptions::Option option, Optional<
 	}
 
 	DatabaseContext *db = this->db;
-	Standalone<Optional<StringRef>> passValue = value;
+	Optional<Standalone<StringRef>> passValue = value.castTo<Standalone<StringRef>>();
 
 	// ThreadSafeDatabase is not allowed to do anything with options except pass them through to RYW.
 	onMainThreadVoid( [db, option, passValue](){ 
 		db->checkDeferredError();
-		db->setOption(option, passValue.contents()); 
+		db->setOption(option, passValue.castTo<StringRef>()); 
 	}, &db->deferredError );
 }
 
@@ -294,10 +294,10 @@ void ThreadSafeTransaction::setOption( FDBTransactionOptions::Option option, Opt
 	}
 	
 	ReadYourWritesTransaction *tr = this->tr;
-	Standalone<Optional<StringRef>> passValue = value;
+	Optional<Standalone<StringRef>> passValue = value.castTo<Standalone<StringRef>>();
 
 	// ThreadSafeTransaction is not allowed to do anything with options except pass them through to RYW.
-	onMainThreadVoid( [tr, option, passValue](){ tr->setOption(option, passValue.contents()); }, &tr->deferredError );
+	onMainThreadVoid( [tr, option, passValue](){ tr->setOption(option, passValue.castTo<StringRef>()); }, &tr->deferredError );
 }
 
 ThreadFuture<Void> ThreadSafeTransaction::checkDeferredError() {

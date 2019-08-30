@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 #include <array>
+#include <optional>
 #include <set>
 #include "flow/ProtocolVersion.h"
 #include "flow/Error.h"
@@ -245,6 +246,30 @@ inline void load( Archive& ar, std::map<K, V>& value ) {
 		value.emplace(p);
 	}
 	ASSERT( ar.protocolVersion().isValid() );
+}
+
+template <class T>
+struct FileIdentifierFor<std::optional<T>> : ComposedIdentifierExternal<T, 0x14> {};
+
+template <class Archive, class T>
+inline void save(Archive& ar, const std::optional<T>& value) {
+	serializer(ar, value.has_value());
+	if(value.has_value()) {
+		serializer(ar, value.value());
+	}
+}
+
+template <class Archive, class T>
+inline void load(Archive& ar, std::optional<T>& value) {
+	value.reset();
+
+	bool hasValue;
+	serializer(ar, hasValue);
+	if(hasValue) {
+		T v;
+		serializer(ar, v);
+		value = v;
+	}
 }
 
 #pragma intrinsic (memcpy)

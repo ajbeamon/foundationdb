@@ -285,6 +285,10 @@ struct StorageMetrics {
 		return bytes == rhs.bytes && bytesPerKSecond == rhs.bytesPerKSecond && iosPerKSecond == rhs.iosPerKSecond;
 	}
 
+	bool operator != ( StorageMetrics const& rhs ) const {
+		return !(*this == rhs);
+	}
+
 	std::string toString() const {
 		return format("Bytes: %lld, BPerKSec: %lld, iosPerKSec: %lld", bytes, bytesPerKSecond, iosPerKSecond);
 	}

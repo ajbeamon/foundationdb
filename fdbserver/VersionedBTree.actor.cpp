@@ -310,7 +310,7 @@ struct RedwoodRecordRef {
 	uint8_t bigEndianPageIDSpace[sizeof(LogicalPageID)];
 
 	int expectedSize() const {
-		return key.expectedSize() + value.expectedSize();
+		return key.expectedSize() + (value.present() ? value.get().expectedSize() : 0);
 	}
 
 	bool isMultiPart() const {

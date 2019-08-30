@@ -945,14 +945,15 @@ ACTOR Future<Void> watchValue_impl( StorageServer* data, WatchValueRequest req )
 				}
 
 				++data->numWatches;
-				data->watchBytes += ( req.key.expectedSize() + req.value.expectedSize() + 1000 );
+				state int expectedSize = req.key.expectedSize() + (req.value.present() ? req.value.get().expectedSize() : 0) + 1000;
+				data->watchBytes += expectedSize;
 				try {
 					wait( watchFuture );
 					--data->numWatches;
-					data->watchBytes -= ( req.key.expectedSize() + req.value.expectedSize() + 1000 );
+					data->watchBytes -= expectedSize;
 				} catch( Error &e ) {
 					--data->numWatches;
-					data->watchBytes -= ( req.key.expectedSize() + req.value.expectedSize() + 1000 );
+					data->watchBytes -= expectedSize;
 					throw;
 				}
 			} catch( Error &e ) {
