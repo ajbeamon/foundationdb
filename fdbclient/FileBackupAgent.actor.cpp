@@ -2107,7 +2107,7 @@ namespace fileBackup {
 				TraceEvent("FileBackupLogsDispatchDone")
 					.detail("BackupUID", config.getUid())
 					.detail("BeginVersion", beginVersion)
-					.detail("RestorableVersion", restorableVersion.orDefault(-1));
+					.detail("RestorableVersion", restorableVersion.value_or(-1));
 
 				return Void();
 			}
@@ -2118,7 +2118,7 @@ namespace fileBackup {
 				.suppressFor(60)
 				.detail("BeginVersion", beginVersion)
 				.detail("EndVersion", endVersion)
-				.detail("RestorableVersion", restorableVersion.orDefault(-1));
+				.detail("RestorableVersion", restorableVersion.value_or(-1));
 
 			state Reference<TaskFuture> logDispatchBatchFuture = futureBucket->future(tr);
 
@@ -4091,7 +4091,7 @@ public:
 							snapshotProgress = true;
 							break;
 						case BackupAgentBase::STATE_COMPLETED:
-							statusText += "The previous backup on tag `" + tagName + "' at " + bc->getURL() + " completed at version " + format("%lld", latestRestorableVersion.orDefault(-1)) + ".\n";
+							statusText += "The previous backup on tag `" + tagName + "' at " + bc->getURL() + " completed at version " + format("%lld", latestRestorableVersion.value_or(-1)) + ".\n";
 							break;
 						default:
 							statusText += "The previous backup on tag `" + tagName + "' at " + bc->getURL() + " " + backupStatus + ".\n";
@@ -4142,7 +4142,7 @@ public:
 											 "Current Snapshot start version and timestamp   - %s, %s\n "
 											 "Expected snapshot end version and timestamp    - %s, %s\n "
 											 "Backup supposed to stop at next snapshot completion - %s\n",
-											 logBytesWritten.orDefault(0), rangeBytesWritten.orDefault(0),
+											 logBytesWritten.value_or(0), rangeBytesWritten.value_or(0),
 											 versionToString(latestLogEndVersion).c_str(), timeStampToString(latestLogEndVersionTimestamp).c_str(),
 											 versionToString(latestSnapshotEndVersion).c_str(), timeStampToString(latestSnapshotEndVersionTimestamp).c_str(),
 											 versionToString(snapshotBeginVersion).c_str(), timeStampToString(snapshotBeginVersionTimestamp).c_str(),
@@ -4161,7 +4161,7 @@ public:
 							std::string msg = format("%s ago : %s\n", secondsToTimeFormat((recentReadVersion - v) / CLIENT_KNOBS->CORE_VERSIONSPERSECOND).c_str(), e.second.first.c_str());
 
 							// If error version is at or more recent than the latest restorable version then it could be inhibiting progress
-							if(v >= latestRestorableVersion.orDefault(0)) {
+							if(v >= latestRestorableVersion.value_or(0)) {
 								recentErrors += msg;
 							}
 							else {

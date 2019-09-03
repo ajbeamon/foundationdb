@@ -370,7 +370,7 @@ public:
 		UNSTOPPABLE_ASSERT(opt.has_value());
 		return opt.value();
 	}
-	T orDefault(T const& default_value) const { 
+	T value_or(T const& default_value) const { 
 		return opt.value_or(default_value);
 	}
 

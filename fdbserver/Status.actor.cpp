@@ -1827,7 +1827,7 @@ static JsonBuilderObject faultToleranceStatusFetcher(DatabaseConfiguration confi
 
 	std::map<NetworkAddress, StringRef> workerZones;
 	for(auto& worker : workers) {
-		workerZones[worker.interf.address()] = worker.interf.locality.zoneId().orDefault(LiteralStringRef(""));
+		workerZones[worker.interf.address()] = worker.interf.locality.zoneId().value_or(LiteralStringRef(""));
 	}
 	std::map<StringRef, int> coordinatorZoneCounts;
 	for(auto& coordinator : coordinators.ccf->getConnectionString().coordinators()) {

@@ -137,7 +137,7 @@ std::string BackupDescription::toString() const {
 
 	for(const KeyspaceSnapshotFile &m : snapshots) {
 		info.append(format("Snapshot:  startVersion=%s  endVersion=%s  totalBytes=%lld  restorable=%s  expiredPct=%.2f\n",
-			formatVersion(m.beginVersion).c_str(), formatVersion(m.endVersion).c_str(), m.totalSize, m.restorable.orDefault(false) ? "true" : "false", m.expiredPct(expiredEndVersion)));
+			formatVersion(m.beginVersion).c_str(), formatVersion(m.endVersion).c_str(), m.totalSize, m.restorable.value_or(false) ? "true" : "false", m.expiredPct(expiredEndVersion)));
 	}
 
 	info.append(format("SnapshotBytes: %lld\n", snapshotBytes));
@@ -192,7 +192,7 @@ std::string BackupDescription::toJSON() const {
 		JsonBuilderObject snapshotDoc;
 		snapshotDoc.setKey("Start", formatVersion(m.beginVersion));
 		snapshotDoc.setKey("End", formatVersion(m.endVersion));
-		snapshotDoc.setKey("Restorable", m.restorable.orDefault(false));
+		snapshotDoc.setKey("Restorable", m.restorable.value_or(false));
 		snapshotDoc.setKey("TotalBytes", m.totalSize);
 		snapshotDoc.setKey("PercentageExpired", m.expiredPct(expiredEndVersion));
 		snapshotsArray.push_back(snapshotDoc);
@@ -674,13 +674,13 @@ public:
 		TraceEvent("BackupContainerDescribe2")
 			.detail("URL", bc->getURL())
 			.detail("LogStartVersionOverride", logStartVersionOverride)
-			.detail("ExpiredEndVersion", metaExpiredEnd.orDefault(invalidVersion))
-			.detail("UnreliableEndVersion", metaUnreliableEnd.orDefault(invalidVersion))
-			.detail("LogBeginVersion", metaLogBegin.orDefault(invalidVersion))
-			.detail("LogEndVersion", metaLogEnd.orDefault(invalidVersion));
+			.detail("ExpiredEndVersion", metaExpiredEnd.value_or(invalidVersion))
+			.detail("UnreliableEndVersion", metaUnreliableEnd.value_or(invalidVersion))
+			.detail("LogBeginVersion", metaLogBegin.value_or(invalidVersion))
+			.detail("LogEndVersion", metaLogEnd.value_or(invalidVersion));
 
 		// If the logStartVersionOverride is positive (not relative) then ensure that unreliableEndVersion is equal or greater
-		if(logStartVersionOverride != invalidVersion && metaUnreliableEnd.orDefault(invalidVersion) < logStartVersionOverride) {
+		if(logStartVersionOverride != invalidVersion && metaUnreliableEnd.value_or(invalidVersion) < logStartVersionOverride) {
 			metaUnreliableEnd = logStartVersionOverride;
 		}
 
@@ -692,15 +692,15 @@ public:
 		//   - metaLogEnd < metaUnreliableEnd   (log continuity exists in incomplete data range)
 		if(!metaLogBegin.present() || !metaLogEnd.present()
 			 || metaLogEnd.get() <= metaLogBegin.get()
-			 || metaLogEnd.get() < metaExpiredEnd.orDefault(invalidVersion)
-			 || metaLogEnd.get() < metaUnreliableEnd.orDefault(invalidVersion)
+			 || metaLogEnd.get() < metaExpiredEnd.value_or(invalidVersion)
+			 || metaLogEnd.get() < metaUnreliableEnd.value_or(invalidVersion)
 		) {
 			TraceEvent(SevWarnAlways, "BackupContainerMetadataInvalid")
 				.detail("URL", bc->getURL())
-				.detail("ExpiredEndVersion", metaExpiredEnd.orDefault(invalidVersion))
-				.detail("UnreliableEndVersion", metaUnreliableEnd.orDefault(invalidVersion))
-				.detail("LogBeginVersion", metaLogBegin.orDefault(invalidVersion))
-				.detail("LogEndVersion", metaLogEnd.orDefault(invalidVersion));
+				.detail("ExpiredEndVersion", metaExpiredEnd.value_or(invalidVersion))
+				.detail("UnreliableEndVersion", metaUnreliableEnd.value_or(invalidVersion))
+				.detail("LogBeginVersion", metaLogBegin.value_or(invalidVersion))
+				.detail("LogEndVersion", metaLogEnd.value_or(invalidVersion));
 
 			metaLogBegin = Optional<Version>();
 			metaLogEnd = Optional<Version>();
@@ -709,7 +709,7 @@ public:
 		// If the unreliable end version is not set or is < expiredEndVersion then increase it to expiredEndVersion.
 		// Describe does not update unreliableEnd in the backup metadata for safety reasons as there is no 
 		// compare-and-set operation to atomically change it and an expire process could be advancing it simultaneously.
-		if(!metaUnreliableEnd.present() || metaUnreliableEnd.get() < metaExpiredEnd.orDefault(0))
+		if(!metaUnreliableEnd.present() || metaUnreliableEnd.get() < metaExpiredEnd.value_or(0))
 			metaUnreliableEnd = metaExpiredEnd;
 
 		desc.unreliableEndVersion = metaUnreliableEnd;
@@ -717,7 +717,7 @@ public:
 
 		// Start scanning at the end of the unreliable version range, which is the version before which data is likely
 		// missing because an expire process has operated on that range.
-		state Version scanBegin = desc.unreliableEndVersion.orDefault(0);
+		state Version scanBegin = desc.unreliableEndVersion.value_or(0);
 		state Version scanEnd = std::numeric_limits<Version>::max();
 
 		// Use the known log range if present
@@ -725,7 +725,7 @@ public:
 		if(metaLogBegin.present() && metaLogEnd.present()) {
 			// minLogBegin is the greater of the log begin metadata OR the unreliable end version since we can't count
 			// on log file presence before that version.
-			desc.minLogBegin = std::max(metaLogBegin.get(), desc.unreliableEndVersion.orDefault(0));
+			desc.minLogBegin = std::max(metaLogBegin.get(), desc.unreliableEndVersion.value_or(0));
 
 			// Set the maximum known end version of a log file, so far, which is also the assumed contiguous log file end version
 			desc.maxLogEnd = metaLogEnd.get();
@@ -857,7 +857,7 @@ public:
 
 		// If the expire request is to a version at or before the previous version to which data was already deleted
 		// then do nothing and just return
-		if(expireEndVersion <= desc.expiredEndVersion.orDefault(invalidVersion)) {
+		if(expireEndVersion <= desc.expiredEndVersion.value_or(invalidVersion)) {
 			return Void();
 		}
 
@@ -867,7 +867,7 @@ public:
 		//   - ends at or before restorableBeginVersion
 		state bool forceNeeded = true;
 		for(KeyspaceSnapshotFile &s : desc.snapshots) {
-			if(s.restorable.orDefault(false) && s.beginVersion >= expireEndVersion && s.endVersion <= restorableBeginVersion) {
+			if(s.restorable.value_or(false) && s.beginVersion >= expireEndVersion && s.endVersion <= restorableBeginVersion) {
 				forceNeeded = false;
 				break;
 			}
@@ -881,7 +881,7 @@ public:
 			throw backup_cannot_expire();
 
 		// Start scan for files to delete at the last completed expire operation's end or 0.
-		state Version scanBegin = desc.expiredEndVersion.orDefault(0);
+		state Version scanBegin = desc.expiredEndVersion.value_or(0);
 
 		TraceEvent("BackupContainerFileSystemExpire2")
 			.detail("URL", bc->getURL())
@@ -958,7 +958,7 @@ public:
 			progress->step = "Initial metadata update";
 		}
 		Optional<Version> metaUnreliableEnd = wait(bc->unreliableEndVersion().get());
-		if(metaUnreliableEnd.orDefault(0) < expireEndVersion) {
+		if(metaUnreliableEnd.value_or(0) < expireEndVersion) {
 			wait(bc->unreliableEndVersion().set(expireEndVersion));
 		}
 
@@ -1001,7 +1001,7 @@ public:
 		// Update the expiredEndVersion metadata to indicate that everything prior to that version has been
 		// successfully deleted if the current version is lower or missing
 		Optional<Version> metaExpiredEnd = wait(bc->expiredEndVersion().get());
-		if(metaExpiredEnd.orDefault(0) < expireEndVersion) {
+		if(metaExpiredEnd.value_or(0) < expireEndVersion) {
 			wait(bc->expiredEndVersion().set(expireEndVersion));
 		}
 

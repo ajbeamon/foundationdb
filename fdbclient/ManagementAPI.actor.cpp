@@ -1159,7 +1159,7 @@ struct AutoQuorumChange : IQuorumChange {
 					if(maxCounts[*field] == 0) {
 						maxCounts[*field] = 1;
 					}
-					auto value = worker->locality.get(*field).orDefault(LiteralStringRef(""));
+					auto value = worker->locality.get(*field).value_or(LiteralStringRef(""));
 					auto currentCount = currentCounts[*field][value];
 					if(currentCount >= maxCounts[*field]) {
 						valid = false;
@@ -1168,7 +1168,7 @@ struct AutoQuorumChange : IQuorumChange {
 				}
 				if(valid) {
 					for(auto field = fields.begin(); field != fields.end(); field++) {
-						auto value = worker->locality.get(*field).orDefault(LiteralStringRef(""));
+						auto value = worker->locality.get(*field).value_or(LiteralStringRef(""));
 						currentCounts[*field][value] += 1;
 					}
 					chosen.push_back(worker->address);
